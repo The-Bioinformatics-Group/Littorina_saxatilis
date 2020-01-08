@@ -48,12 +48,22 @@ if (is.null(opt$vcf) | is.null(opt$directory) | is.null(opt$ecotype) | is.null(o
 # https://bioconductor.org/packages/release/bioc/html/snpStats.html
 
 ######################
+#For the real script when we use arguments
 tabreads = read.table(opt$vcf, header=TRUE, sep = "\t")
 spat_dir = opt$directory
 ecotype = opt$ecotype
 island = strsplit(opt$island, split = " ")[[1]]
 testLG = opt$linkgrp
-# island = strsplit("CZA CZB", split = " ")[[1]]
+
+#For testing the script
+tabreads = read.table("/home/aurelien/Travail/Map_Variant_Using_LD/LGid_r2_approach/tables/all_contigs.vcf.genotype.table", header=TRUE, sep = "\t")
+spat_dir = "/home/aurelien/Travail/Map_Variant_Using_LD/LGid_r2_approach/data"
+ecotype = "crab"
+island = "CZA"
+testLG = 4
+
+
+
 
 #### read spatial data ####
 CZ_LCP = lapply(island, function(i) {
@@ -134,8 +144,8 @@ theta.init = list(CZA=list(cl=130, cr=280, lwl=3, lwr=2.3, crab=-2.1, wave=-1.9,
                            sc=0.2, shl=0.2, sh=0.2, sw=0.2))
 cline_pars = lapply(seq_along(island), function(c) {
   cat("Fitting cline for island", island[c], "...\n")
-  mle.cline.2c4s = mle2(cline_2c4s, theta.init[[c]],
-                        control=list(parscale=abs(unlist(theta.init[[c]]))),
+  mle.cline.2c4s = mle2(cline_2c4s, theta.init[[island[c]]],
+                        control=list(parscale=abs(unlist(theta.init[[island[c]]]))),
                         data=list(phen=-log(CZ_data[[c]][CZ_data[[c]]$shore==island[c],]$length_mm),
                                   position=CZ_data[[c]][CZ_data[[c]]$shore==island[c],]$LCmeanDist,
                                   sex=CZ_data[[c]][CZ_data[[c]]$shore==island[c],]$sex))
@@ -144,40 +154,40 @@ cline_pars = lapply(seq_along(island), function(c) {
 })
 #### sample from crab or wave habitat (commented out) ####
 #### dataset(s) is provided on GitHub ####
-gitdir = getURL(paste0("https://raw.githubusercontent.com/The-Bioinformatics-Group/Littorina_saxatilis/master/LGid_r2_approach/data/CZA_",
-                       ecotype, "50_LCP_ID.csv"))
-df_eco = list(read.csv(text = gitdir))
-# df_eco = lapply(seq_along(island), function(x) {
-#   if (ecotype == "crab") {
-#     cl = cline_pars[[x]]["cl", "Estimate"]
-#     cr = cline_pars[[x]]["cr", "Estimate"]
-#     wl = cline_pars[[x]]["lwl", "Estimate"]
-#     wr = cline_pars[[x]]["lwr", "Estimate"]
-#     crab = data.frame(LCmeanDist = seq(from = cl+wl, to = cr-wr), snail_ID=NA, stringsAsFactors = FALSE)
-#     if (nrow(crab) > 50) {
-#       crab = sample_n(crab, size = 50)
-#     }
-#     for (l in 1:nrow(crab)) {
-#       crab[l, "snail_ID"] = as.character(CZ_LCP[[x]][, "snail_ID"])[which(as.integer(CZ_LCP[[x]][, "LCmeanDist"]) == as.integer(crab[l, "LCmeanDist"]))[1]]
-#     }
-#     crab = crab[complete.cases(crab), ]
-#   } else {
-#     czsp = arrange(CZ_LCP[[x]], desc(LCmeanDist))
-#     wave = data.frame(snail_ID = czsp$snail_ID[c(1:25, (nrow(czsp)-25):nrow(czsp))],
-#                       LCmeanDist = czsp$LCmeanDist[c(1:25, (nrow(czsp)-25):nrow(czsp))])
-#   }
-# })
+#gitdir = getURL(paste0("https://raw.githubusercontent.com/The-Bioinformatics-Group/Littorina_saxatilis/master/LGid_r2_approach/data/CZA_",
+#                       ecotype, "50_LCP_ID.csv"))
+#df_eco = list(read.csv(text = gitdir))
+ df_eco = lapply(seq_along(island), function(x) {
+   if (ecotype == "crab") {
+     cl = cline_pars[[x]]["cl", "Estimate"]
+     cr = cline_pars[[x]]["cr", "Estimate"]
+     wl = cline_pars[[x]]["lwl", "Estimate"]
+     wr = cline_pars[[x]]["lwr", "Estimate"]
+     crab = data.frame(LCmeanDist = seq(from = cl+wl, to = cr-wr), snail_ID=NA, stringsAsFactors = FALSE)
+     if (nrow(crab) > 50) {
+       crab = sample_n(crab, size = 50)
+     }
+     for (l in 1:nrow(crab)) {
+       crab[l, "snail_ID"] = as.character(CZ_LCP[[x]][, "snail_ID"])[which(as.integer(CZ_LCP[[x]][, "LCmeanDist"]) == as.integer(crab[l, "LCmeanDist"]))[1]]
+     }
+     crab = crab[complete.cases(crab), ]
+   } else {
+     czsp = arrange(CZ_LCP[[x]], desc(LCmeanDist))
+     wave = data.frame(snail_ID = czsp$snail_ID[c(1:25, (nrow(czsp)-25):nrow(czsp))],
+                       LCmeanDist = czsp$LCmeanDist[c(1:25, (nrow(czsp)-25):nrow(czsp))])
+   }
+ })
 ###############################
 # plot samples along transect #
 ###############################
-# dir.create(file.path(getwd(), "figures"))
-# df_eco_spa = merge(CZ_data[[1]], df_eco[[1]], by = c("snail_ID"))
-# pdf(paste0(getwd(), "/figures/", island, "_", ecotype, nrow(df_eco_spa), "_spatial.pdf"))
-# plot(x = CZ_data[[1]]$LCmeanDist, CZ_data[[1]]$length_mm, pch=19, cex=0.5,
-#      xlab=paste0(island, " transect position"), ylab = "length (mm)")
-# text(x = df_eco_spa$LCmeanDist.x, y = df_eco_spa$length_mm, labels = df_eco_spa$snail_ID, cex = 0.5, pos = 4)
-# segments(x0 = df_eco_spa$LCmeanDist.x, y0 = df_eco_spa$length_mm, x1 = df_eco_spa$LCmeanDist.x+5, y1 = df_eco_spa$length_mm)
-# dev.off()
+ ifelse(!dir.exists(file.path(getwd(), "figures")), dir.create(file.path(getwd(), "figures")), FALSE)
+ df_eco_spa = merge(CZ_data[[1]], df_eco[[1]], by = c("snail_ID"))
+ pdf(paste0(getwd(), "/figures/", island, "_", ecotype, nrow(df_eco_spa), "_spatial.pdf"))
+ plot(x = CZ_data[[1]]$LCmeanDist, CZ_data[[1]]$length_mm, pch=19, cex=0.5,
+      xlab=paste0(island, " transect position"), ylab = "length (mm)")
+ text(x = df_eco_spa$LCmeanDist.x, y = df_eco_spa$length_mm, labels = df_eco_spa$snail_ID, cex = 0.5, pos = 4)
+ segments(x0 = df_eco_spa$LCmeanDist.x, y0 = df_eco_spa$length_mm, x1 = df_eco_spa$LCmeanDist.x+5, y1 = df_eco_spa$length_mm)
+ dev.off()
 ##################################
 #### find sample names in vcf ####
 ecoID = lapply(seq_along(island), function(n) {
@@ -260,15 +270,49 @@ dat_012 = lapply(seq_along(island), function(isl) {
 dat_012 = lapply(seq_along(island), function(isl) {
   as.data.frame(cbind(nnGT_tab, dat_012[[isl]]))
 })
-#### remove invariant sites ####
+#### remove invariant genotype & filter on min allele freq threshold 0.1 ####
 dat_012_invind = lapply(seq_along(island), function(isl) {
-  inv_ind_all = lapply(c(0,1,2), function(n) {
-    TF_inv_ind = apply(dat_012[[isl]][, GT_col[[isl]]], MARGIN = 1, FUN = function(x) sum(x==n)!=length(ecoID[[isl]]))
-    dat_012[[isl]][TF_inv_ind, ]
-  })
-  inv_ind_fin = Reduce(function(...) merge(..., by=colnames(dat_012[[isl]])), inv_ind_all)
-  return(inv_ind_fin)
+  #inv_ind_all = lapply(c(0,1,2), function(n) {
+  #TF_inv_ind = apply(dat_012[[isl]][, GT_col[[isl]]], MARGIN = 1, FUN = function(x) sum(x==n)!=length(ecoID[[isl]]))
+
+  #remove loci heterozygotes for all individuals
+  TF_het_all_ind = apply(dat_012[[isl]][, GT_col[[isl]]], MARGIN = 1, FUN = function(x) sum(x==1)!=length(ecoID[[isl]]))
+  TF_het_all_ind_list=dat_012[[isl]][(!TF_het_all_ind),1:2 ]
+  assign(paste("TF_het_all_ind_list",island[isl],sep="_"),TF_het_all_ind_list,env=`.GlobalEnv`)
+  print(paste(dim(TF_het_all_ind_list)[1], "SNP were removed because they were heterozygotes in all individuals"))
+  #remove loci with min all freq <0.1 (it also removes loci homozygotes for all individuals)
+  TF_maf = apply(dat_012[[isl]][, GT_col[[isl]]], MARGIN = 1, FUN = function(x) {freq=sum(x)/(2*length(x)); freq<0.9 & freq>0.1});
+  TF_maf_list=dat_012[[isl]][(!TF_maf),1:2 ]
+  assign(paste("TF_maf_list",island[isl],sep="_"),TF_maf_list,env=`.GlobalEnv`)
+  print(paste(dim(TF_maf_list)[1],"SNP were removed because MAF was below 0.1"))
+  dat_012[[isl]][(TF_het_all_ind & TF_maf), ]
+
+
+
+  #})
+  #inv_ind_fin = Reduce(function(...) merge(..., by=colnames(dat_012[[isl]])), inv_ind_all)
+  #return(inv_ind_fin)
 })
+
+
+#Calculate the percentage of SNP removed by the above filtering step
+lapply(seq_along(island), function(isl) {
+
+  rmv.snp.perc=100*(1-dim(dat_012_invind[[isl]])[1]/dim(dat_012[[isl]])[1])
+  if (rmv.snp.perc>10) {
+
+    cat("More than 10 percent of the SNPs were discarded for Island",
+    island[isl], "because they were invariant or MAF was below 0.1 \n")
+
+    cat("To see the list of discarded SNPs look at the TF_maf_list",
+    "and TF_het_all_ind_list objects for island", island[isl])
+
+  }
+
+})
+
+
+
 dat_012_var = lapply(seq_along(island), function(isl) {
   var_T = lapply(c(0,1,2), function(n) {
     var_TF = apply(dat_012_invind[[isl]][, GT_col[[isl]]], MARGIN = 2, FUN = function(x) sum(x==n)!=nrow(dat_012_invind[[isl]]))
@@ -297,25 +341,36 @@ contID_map = rbindlist(lapply(contID, function(c) {
     sample_n(map_df, size = 1)
   }
 }))
+
+##Because some contigs may have been removed due to the SNP filtering
+##on MAF and invariant genotype, we need to subset the contID_map to keep
+## only contigs that passed these filters
+
+contig.filtered=unique(t(data.frame(lapply(colnames(dat_012_cor[[1]]),
+                          function(x) unlist(strsplit(x,"_")))))[,1])
+
+contID_map.filtered=contID_map[contID_map$contig %in% contig.filtered,]
+
 r2_ukn_map = lapply(seq_along(island), function(isl) {
-  rbindlist(lapply(seq_along(contID_map$contig), function(c) {
+  rbindlist(lapply(seq_along(contID_map.filtered$contig), function(c) {
     unknown = dat_012_cor[[isl]][grepl(pattern = paste0(conlg6invcf, "_"), x = rownames(dat_012_cor[[isl]])), ]
-    cor_ukn_kn = as.data.frame(unknown[, grepl(pattern = paste0(contID_map$contig[c], "_"), x = colnames(unknown))])
+    cor_ukn_kn = as.data.frame(unknown[, grepl(pattern = paste0(contID_map.filtered$contig[c], "_"), x = colnames(unknown))])
     r2_stats = data.frame(cont_ukn = rownames(cor_ukn_kn),
                           r2_mean = apply(X = cor_ukn_kn, MARGIN = 1, mean),
                           r2_max = apply(X = cor_ukn_kn, MARGIN = 1, max),
-                          cont_map = contID_map$contig[c], av = contID_map$av[c], LG = contID_map$LG[c])
+                          cont_map = contID_map.filtered$contig[c], av = contID_map.filtered$av[c], LG = contID_map.filtered$LG[c])
     return(r2_stats)
   }))
 })
 #### plot r2 against map position ####
 #### NOTE: only for one island and one test variant in desired LG ####
-dir.create(file.path(getwd(), "figures"))
+ifelse(!dir.exists(file.path(getwd(), "figures")), dir.create(file.path(getwd(), "figures")), FALSE)
 repodir = getwd()
 # repodir = "/Users/samuelperini/Documents/research/projects/Littorina_saxatilis/LGid_r2_approach/"
 r2_1ukn_map = r2_ukn_map[[1]][r2_ukn_map[[1]]$cont_ukn==as.character(unique(r2_ukn_map[[1]]$cont_ukn)[1]), ]
 r2_1ukn_map = r2_1ukn_map[r2_1ukn_map$cont_map!=conlg6invcf, ]
-pdf(paste0(repodir, "figures/", island, "_", ecotype, "_", unique(r2_1ukn_map$cont_ukn), "_mean&max_r2_map.pdf"))
+pdf(paste0(repodir, "/figures/", island, "_", ecotype, "_", unique(r2_1ukn_map$cont_ukn), "_mean&max_r2_map.pdf"))
+#pdf(paste0("/home/aurelien/Documents/GitHub/", island, "_", ecotype, "_", unique(r2_1ukn_map$cont_ukn), "_mean&max_r2_map.pdf"))
 ggplot(data = r2_1ukn_map) +
   facet_wrap(~LG, ncol = length(unique(r2_1ukn_map$LG))) +
   geom_point(aes(x = av, y = r2_mean, col = 'mean r2')) +
@@ -326,6 +381,6 @@ ggplot(data = r2_1ukn_map) +
         strip.text = element_text(face="bold", size=11),
         strip.background = element_rect(fill="lightblue", colour="black",size=1))
 dev.off()
-cat("\n****Figure is saved as:\n", paste0(repodir, "figures/", island, "_", ecotype, "_",
+cat("\n****Figure is saved as:\n", paste0(repodir, "/figures/", island, "_", ecotype, "_",
                                           unique(r2_1ukn_map$cont_ukn), "_mean&max_r2_map.pdf\n"),
     "\nTHE JOB IS DONE!")
